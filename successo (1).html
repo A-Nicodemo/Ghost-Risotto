@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ghost Kitchen x Disco Risotto — Conferma</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Caveat:wght@600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root {
+    --teal-900: #04342C; --teal-200: #9FE1CB; --teal-400: #5DCAA5;
+    --coral-500: #D85A30; --coral-900: #4A1B0C; --cream: #FAECE7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--teal-900); color: var(--cream);
+    font-family: -apple-system, sans-serif; display: flex; justify-content: center;
+  }
+  .wrap { width: 100%; max-width: 420px; padding: 40px 22px 60px; text-align: center; }
+  h1 { font-family: 'Anton', sans-serif; font-size: 32px; margin: 0 0 20px; }
+  .rule { width: 40px; height: 2px; background: var(--teal-400); margin: 20px auto; }
+  .box {
+    text-align: left; background: rgba(255,255,255,0.05); border-radius: 10px;
+    padding: 16px 18px; margin-top: 16px;
+  }
+  .box .label { font-size: 12px; color: var(--teal-400); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .box .value { font-size: 15px; line-height: 1.5; white-space: pre-wrap; }
+  .parola { font-family: 'Caveat', cursive; font-weight: 600; font-size: 26px; color: #F0997B; }
+  .stato { font-size: 14px; color: var(--teal-200); }
+  button {
+    margin-top: 22px; background: var(--coral-500); color: var(--coral-900);
+    border: none; padding: 12px 20px; font-size: 14px; font-weight: 600; border-radius: 8px; cursor: pointer;
+  }
+  a.maps {
+    display: block; margin-top: 8px; background: var(--teal-400); color: var(--teal-900);
+    text-decoration: none; padding: 10px; border-radius: 8px; font-weight: 600; font-size: 13px; text-align: center;
+  }
+  .biglietto { background: var(--cream); border-radius: 10px; padding: 16px; margin-top: 16px; }
+  .biglietto .label { font-size: 12px; color: var(--teal-900); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+  #qrcode { display: flex; justify-content: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>GHOST KITCHEN x DISCO RISOTTO</h1>
+  <div class="rule"></div>
+  <div id="contenuto">
+    <p class="stato">Verifica del pagamento in corso...</p>
+  </div>
+</div>
+
+<script>
+  // ⚠️ Sostituisci con l'URL della tua Web App Apps Script
+  var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDVkQyvecG5KqN3KDA6-of-52FBPUOj_jYCPRAPCaTuVH0PrMHuoXc-k6XO1agBns/exec';
+
+  function jsonp(params, callback) {
+    var cbName = 'cb_' + Date.now();
+    window[cbName] = function (data) {
+      callback(data);
+      delete window[cbName];
+      script.remove();
+    };
+    params.callback = cbName;
+    var query = Object.keys(params).map(function (k) {
+      return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+    }).join('&');
+    var script = document.createElement('script');
+    script.src = SCRIPT_URL + '?' + query;
+    document.body.appendChild(script);
+  }
+
+  function getParam(nome) {
+    return new URLSearchParams(window.location.search).get(nome);
+  }
+
+  function mostraContenuto(html) {
+    document.getElementById('contenuto').innerHTML = html;
+  }
+
+  function verifica() {
+    var sessionId = getParam('session_id');
+    if (!sessionId) {
+      mostraContenuto('<p class="stato">Link non valido: manca il riferimento al pagamento.</p>');
+      return;
+    }
+
+    jsonp({ action: 'verificaPagamento', sessionId: sessionId }, function (res) {
+      if (!res.ok) {
+        mostraContenuto('<p class="stato">' + (res.errore || 'Errore nella verifica.') + '</p>');
+        return;
+      }
+      if (!res.pagato) {
+        mostraContenuto(
+          '<p class="stato">Pagamento non ancora confermato. Se hai appena pagato, attendi qualche secondo.</p>' +
+          '<button onclick="verifica()">Riprova</button>'
+        );
+        return;
+      }
+      mostraContenuto(
+        '<p class="stato">Pagamento confermato! Ecco i dettagli:</p>' +
+        '<div class="biglietto"><div class="label">Il tuo biglietto</div><div id="qrcode"></div></div>' +
+        '<div class="box"><div class="label">Location</div><div class="value">' + res.location + '</div>' +
+          (res.linkLocationMaps ? '<a class="maps" href="' + res.linkLocationMaps + '" target="_blank">Apri la location su Google Maps</a>' : '') +
+        '</div>' +
+        '<div class="box"><div class="label">Parcheggio</div>' +
+          (res.linkParcheggioMaps ? '<a class="maps" href="' + res.linkParcheggioMaps + '" target="_blank">Apri il parcheggio su Google Maps</a>' : '<div class="value">Nessun link impostato</div>') +
+        '</div>' +
+        '<div class="box"><div class="label">Indicazioni a piedi dal parcheggio</div><div class="value">' + res.indicazioni + '</div></div>' +
+        '<div class="box"><div class="label">Parola d\'ordine al citofono</div><div class="value parola">' + res.parolaOrdine + '</div></div>'
+      );
+
+      var urlCheckin = window.location.href.replace(/successo\.html.*$/, 'backoffice.html') + '?checkin=' + res.id;
+      new QRCode(document.getElementById('qrcode'), {
+        text: urlCheckin, width: 180, height: 180,
+        colorDark: '#04342C', colorLight: '#FAECE7'
+      });
+    });
+  }
+
+  verifica();
+</script>
+</body>
+</html>
