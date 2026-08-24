@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backoffice — Ghost Kitchen x Disco Risotto</title>
+<style>
+  :root {
+    --teal-900: #04342C; --teal-200: #9FE1CB; --teal-400: #5DCAA5;
+    --coral-500: #D85A30; --coral-900: #4A1B0C; --cream: #FAECE7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--teal-900); color: var(--cream);
+    font-family: -apple-system, sans-serif; display: flex; justify-content: center;
+  }
+  .wrap { width: 100%; max-width: 480px; padding: 32px 20px 60px; position: relative; }
+  h1 { font-size: 20px; margin: 0 0 20px; }
+  h2 { font-size: 15px; color: var(--teal-200); margin: 28px 0 10px; }
+  label { display: block; font-size: 13px; color: var(--teal-200); margin: 12px 0 5px; }
+  input, textarea {
+    width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--teal-400);
+    background: transparent; color: var(--cream); font-size: 14px; font-family: inherit;
+  }
+  textarea { min-height: 60px; resize: vertical; }
+  button {
+    margin-top: 16px; background: var(--coral-500); color: var(--coral-900);
+    border: none; padding: 11px 18px; font-size: 14px; font-weight: 600; border-radius: 8px; cursor: pointer;
+  }
+  .msg { margin-top: 10px; font-size: 13px; }
+  .msg.err { color: #F0997B; }
+  .msg.ok { color: var(--teal-400); }
+  #pannello { display: none; }
+  .contatore { font-size: 13px; color: var(--teal-400); margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+  th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  th { color: var(--teal-200); font-weight: 500; }
+  .stato-pagato { color: var(--teal-400); }
+  .stato-attesa { color: #F0997B; }
+  .risultato {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .risultato .nome { font-size: 14px; }
+  .risultato .stato { font-size: 11px; margin-top: 2px; }
+  .btn-ingresso {
+    margin: 0; padding: 8px 12px; font-size: 12px; background: var(--teal-400); color: var(--teal-900);
+  }
+  .btn-ingresso.entrato { background: rgba(255,255,255,0.1); color: var(--teal-200); cursor: default; }
+  .btn-ingresso:disabled { opacity: 0.5; cursor: not-allowed; }
+  #schermataScan {
+    display: none; position: absolute; inset: 0; z-index: 10;
+    flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 30px;
+  }
+  #schermataScan.ok { background: #1f5c3a; }
+  #schermataScan.no { background: #8c2f1f; }
+  #schermataScan .esito { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+  #schermataScan .dettaglio { font-size: 15px; color: var(--teal-200); margin-bottom: 24px; }
+  #schermataScan button { background: var(--cream); color: var(--teal-900); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="schermataScan">
+    <div class="esito" id="scanEsito"></div>
+    <div class="dettaglio" id="scanDettaglio"></div>
+    <button onclick="window.location.href = window.location.pathname;">Torna al backoffice</button>
+  </div>
+
+  <h1>Backoffice · Ghost Kitchen x Disco Risotto</h1>
+
+  <div id="gatePin">
+    <label for="pin">PIN</label>
+    <input type="password" id="pin">
+    <button id="btnEntra">Entra</button>
+    <div class="msg" id="msgPin"></div>
+  </div>
+
+  <div id="pannello">
+    <h2>Controllo accessi</h2>
+    <input type="text" id="ricercaNome" placeholder="Cerca per nome o cognome...">
+    <div id="risultatiAccessi"></div>
+
+    <h2>Configurazione</h2>
+    <label for="prezzo">Prezzo (€)</label>
+    <input type="text" id="prezzo">
+
+    <label for="capienza_max">Capienza massima</label>
+    <input type="text" id="capienza_max">
+    <div class="contatore" id="contatorePosti"></div>
+
+    <label for="link_stripe">Link Stripe (Payment Link)</label>
+    <input type="text" id="link_stripe">
+
+    <label for="link_parcheggio_maps">Link Google Maps — punto parcheggio</label>
+    <input type="text" id="link_parcheggio_maps" placeholder="https://maps.app.goo.gl/...">
+
+    <label for="link_location_maps">Link Google Maps — location</label>
+    <input type="text" id="link_location_maps" placeholder="https://maps.app.goo.gl/...">
+
+    <label for="location_testo">Testo location</label>
+    <textarea id="location_testo"></textarea>
+
+    <label for="indicazioni_testo">Indicazioni (parcheggio → ingresso)</label>
+    <textarea id="indicazioni_testo"></textarea>
+
+    <label for="parola_ordine">Parola d'ordine al citofono</label>
+    <input type="text" id="parola_ordine">
+
+    <button id="btnSalva">Salva modifiche</button>
+    <div class="msg" id="msgSalva"></div>
+
+    <h2>Prenotazioni</h2>
+    <table>
+      <thead><tr><th>Nome</th><th>Email</th><th>Cod. Fiscale</th><th>Stato</th></tr></thead>
+      <tbody id="tabellaPrenotazioni"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // ⚠️ Sostituisci con l'URL della tua Web App Apps Script
+  var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDVkQyvecG5KqN3KDA6-of-52FBPUOj_jYCPRAPCaTuVH0PrMHuoXc-k6XO1agBns/exec';
+  var pinAttuale = '';
+
+  function jsonp(params, callback) {
+    var cbName = 'cb_' + Date.now();
+    window[cbName] = function (data) {
+      callback(data);
+      delete window[cbName];
+      script.remove();
+    };
+    params.callback = cbName;
+    var query = Object.keys(params).map(function (k) {
+      return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+    }).join('&');
+    var script = document.createElement('script');
+    script.src = SCRIPT_URL + '?' + query;
+    document.body.appendChild(script);
+  }
+
+  function riempiCampi(cfg) {
+    ['prezzo', 'capienza_max', 'link_stripe', 'link_parcheggio_maps', 'link_location_maps', 'location_testo', 'indicazioni_testo', 'parola_ordine']
+      .forEach(function (k) { document.getElementById(k).value = cfg[k] || ''; });
+    document.getElementById('contatorePosti').textContent =
+      'Posti occupati: ' + (cfg.posti_occupati || 0) + ' / ' + (cfg.capienza_max || 0);
+  }
+
+  function riempiTabella(prenotazioni) {
+    var tbody = document.getElementById('tabellaPrenotazioni');
+    tbody.innerHTML = '';
+    prenotazioni.slice().reverse().forEach(function (p) {
+      var tr = document.createElement('tr');
+      var classeStato = p.stato === 'pagato' ? 'stato-pagato' : 'stato-attesa';
+      tr.innerHTML = '<td>' + p.nome + ' ' + p.cognome + '</td><td>' + p.email + '</td><td>' + p.codiceFiscale + '</td><td class="' + classeStato + '">' + p.stato + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function getParam(nome) {
+    return new URLSearchParams(window.location.search).get(nome);
+  }
+
+  function entraConPin(pin, msgEl) {
+    jsonp({ action: 'getBackofficeData', pin: pin }, function (res) {
+      if (!res.ok) {
+        if (msgEl) { msgEl.textContent = res.errore || 'PIN errato'; msgEl.className = 'msg err'; }
+        sessionStorage.removeItem('bo_pin');
+        return;
+      }
+      pinAttuale = pin;
+      sessionStorage.setItem('bo_pin', pin);
+      document.getElementById('gatePin').style.display = 'none';
+      document.getElementById('pannello').style.display = 'block';
+      riempiCampi(res.config);
+      riempiTabella(res.prenotazioni);
+      cercaAccessi('');
+
+      var idCheckin = getParam('checkin');
+      if (idCheckin) {
+        gestisciScan(idCheckin);
+      }
+    });
+  }
+
+  function gestisciScan(id) {
+    var box = document.getElementById('schermataScan');
+    var esito = document.getElementById('scanEsito');
+    var dettaglio = document.getElementById('scanDettaglio');
+    box.style.display = 'flex';
+
+    jsonp({ action: 'segnaIngresso', pin: pinAttuale, id: id }, function (r) {
+      if (r.ok) {
+        box.className = 'ok';
+        esito.textContent = '✓ INGRESSO OK';
+        dettaglio.textContent = 'Biglietto valido, persona registrata.';
+      } else {
+        box.className = 'no';
+        esito.textContent = '✕ NON VALIDO';
+        dettaglio.textContent = r.errore || 'Errore nel controllo.';
+      }
+      cercaAccessi('');
+    });
+  }
+
+  document.getElementById('btnEntra').addEventListener('click', function () {
+    var pin = document.getElementById('pin').value;
+    entraConPin(pin, document.getElementById('msgPin'));
+  });
+
+  var pinSalvato = sessionStorage.getItem('bo_pin');
+  if (pinSalvato) {
+    entraConPin(pinSalvato, null);
+  }
+
+  function cercaAccessi(query) {
+    jsonp({ action: 'cercaPrenotazioni', pin: pinAttuale, query: query }, function (res) {
+      var box = document.getElementById('risultatiAccessi');
+      box.innerHTML = '';
+      if (!res.ok || !res.risultati.length) {
+        box.innerHTML = '<div class="msg">Nessun risultato.</div>';
+        return;
+      }
+      res.risultati.forEach(function (p) {
+        var div = document.createElement('div');
+        div.className = 'risultato';
+        var classeStato = p.stato === 'pagato' ? 'stato-pagato' : 'stato-attesa';
+        var testoStato = p.stato === 'pagato' ? 'ha il biglietto' : 'senza biglietto';
+        var html = '<div><div class="nome">' + p.nome + ' ' + p.cognome + '</div>' +
+                    '<div class="stato ' + classeStato + '">' + testoStato + '</div></div>';
+        div.innerHTML = html;
+
+        if (p.linkPagamento) {
+          var btnCopia = document.createElement('button');
+          btnCopia.className = 'btn-ingresso';
+          btnCopia.textContent = 'Copia link';
+          btnCopia.addEventListener('click', function () {
+            navigator.clipboard.writeText(p.linkPagamento);
+            btnCopia.textContent = 'Copiato!';
+            setTimeout(function () { btnCopia.textContent = 'Copia link'; }, 1500);
+          });
+          div.appendChild(btnCopia);
+        }
+
+        var btn = document.createElement('button');
+        btn.className = 'btn-ingresso';
+        if (p.ingresso) {
+          btn.textContent = 'Già entrato';
+          btn.classList.add('entrato');
+          btn.disabled = true;
+        } else if (p.stato !== 'pagato') {
+          btn.textContent = 'Segna ingresso';
+          btn.disabled = true;
+        } else {
+          btn.textContent = 'Segna ingresso';
+          btn.addEventListener('click', function () {
+            jsonp({ action: 'segnaIngresso', pin: pinAttuale, id: p.id }, function (r) {
+              if (r.ok) {
+                cercaAccessi(document.getElementById('ricercaNome').value);
+              } else {
+                alert(r.errore);
+              }
+            });
+          });
+        }
+        div.appendChild(btn);
+        box.appendChild(div);
+      });
+    });
+  }
+
+  var timerRicerca;
+  document.getElementById('ricercaNome').addEventListener('input', function () {
+    clearTimeout(timerRicerca);
+    var val = this.value;
+    timerRicerca = setTimeout(function () { cercaAccessi(val); }, 300);
+  });
+
+  document.getElementById('btnSalva').addEventListener('click', function () {
+    var msg = document.getElementById('msgSalva');
+    var nuoviValori = {};
+    ['prezzo', 'capienza_max', 'link_stripe', 'link_parcheggio_maps', 'link_location_maps', 'location_testo', 'indicazioni_testo', 'parola_ordine']
+      .forEach(function (k) { nuoviValori[k] = document.getElementById(k).value; });
+
+    jsonp({ action: 'aggiornaConfig', pin: pinAttuale, config: JSON.stringify(nuoviValori) }, function (res) {
+      if (res.ok) {
+        msg.textContent = 'Salvato.';
+        msg.className = 'msg ok';
+      } else {
+        msg.textContent = res.errore || 'Errore nel salvataggio.';
+        msg.className = 'msg err';
+      }
+    });
+  });
+</script>
+</body>
+</html>
